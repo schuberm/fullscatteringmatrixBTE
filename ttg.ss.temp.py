@@ -4,15 +4,14 @@ import pylab as pl
 from os import listdir
 import pickle
 import glob
-import scipy.linalg
-import scipy.misc
+import scipy.optimize
 from utils import *
 
-nq = 256
+nq = 64*64
 nat3 = 6
 n = 3
-T = 300
-filesdir = 'FILESPATH'
+T = 50
+filesdir = 'FILESDIR'
 
 #Volume and temperature prefactor from thermal2k
 f = open(filesdir+'lambda.f.tk','rb')
@@ -22,21 +21,6 @@ f.close()
 omega = 1/(-lambdua*(T**2 * K_BOLTZMANN_RY))
 #BRING TO SI units
 omega = omega*RY_TO_METER**3
-
-#Ain_read = np.zeros((nq,nq*nat3*nat3*3))
-#f = open(filesdir+'A.f.tk','rb')
-#for ii in xrange(nq):
-#	field = np.fromfile(f, dtype='float64',count=nq*nat3*nat3*3, sep=' ')
-#	Ain_read[ii,:] = field
-#f.close()
-
-#Ain_m = np.zeros((nq*nat3,nq*nat3))
-
-#for jj in xrange(nq):
-#	for ii in xrange(nq):
-#		Ain_m[(ii)*nat3:(ii+1)*nat3,(jj)*nat3:(jj+1)*nat3] = (Ain_read[jj, ii*(nat3*nat3*3): ii*(nat3*nat3*3)+(nat3*nat3*3):3]).reshape((nat3,nat3))
-
-#pickle.dump(Ain_m,open("Ain.p","wb"))
 
 Aoutfull = np.zeros((nq,nat3))
 f = open(filesdir+'Aout.f.tk','rb')
@@ -80,22 +64,23 @@ f.close()
 #A in Lorenzo code is W in our paper, rescaled by n(n+1)
 #Will use W moving forward, and A for A = W + diag(v.q*1j)
 Aoutfull = np.reshape(Aoutfull,nq*nat3)
-Ain = pickle.load(open('Ain.p',"rb"))
-W = Ain + np.diag(Aoutfull)
+#Ain = pickle.load(open('../Ain.y.p',"rb"))
+W = np.load('../Ain.d.npy') + np.diag(Aoutfull)
+#W = Ain + np.diag(Aoutfull)
 nnp1mat = np.tile(nnp1, (W.shape[0], 1))
 Wnnp1= W/nnp1mat
 
 #BRING TO SI units
 cj = Cj_si(w,T,K_BOLTZMANN_SI)/omega
 
-vx = c[:,0]
-vz = c[:,1]
-vz[np.abs(vz)<1e-10] = -10
-c[:,1] = vz
-c[:,0] = vx
+qx = 2e6
 
-keff = k_eff_fs(w[n:],c[n:,:],cj[n:],Wnnp1[n:,n:]/RY_TO_SECOND,DI)*1/nq
-print(keff)
-np.savetxt('keff.'+str(DI)+'.dat',keff)
+dT = deltaT_ed(w[n:],c[n:,:],cj[n:],Wnnp1[n:,n:]/RY_TO_SECOND,np.array([qx,0,0]),10**OMEGA)
+
+print(dT)
+#np.savetxt('dT.'+str(OMEGA)+'.dat',[dT])
+pickle.dump(dT,open('dT.'+str(OMEGA)+'.ed.dat',"wb"))
+
+
 
 
